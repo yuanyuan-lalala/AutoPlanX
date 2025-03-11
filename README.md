@@ -1,2 +1,2 @@
 # AutoPlanX
-AutoPlanX: Lateral-Longitudinal Interaction Demo
+AutoPlanX: Lateral-Longitudinal Interaction Demo for uneven terrain
