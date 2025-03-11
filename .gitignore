@@ -46,6 +46,81 @@ qtcreator-*
 
 # Emacs
 .#*
+# 构建系统相关
+/build/
+/CMakeCache.txt
+/cmake_install.cmake
+/CTestTestfile.cmake
+/CMakeFiles/
+/Makefile
+/atomic_configure/
+/catkin_make.cache
+/compile_commands.json
+/CTestConfiguration.ini
+/CTestCustom.cmake
+/compilerTest/
 
+# 编译中间文件
+*.o
+*.o.d
+*.a
+*.so
+*.a.out
+*.bin
+*.stamp
+
+# 自动生成的脚本和环境配置
+/env.sh
+/setup.*
+/local_setup.*
+/_setup_util.py
+/generate_cached_setup.py
+/order_packages.cmake
+/order_packages.py
+/setup_cached.sh
+
+# 依赖和外部库
+/_deps/
+/blasfeodownload-subbuild/
+/hpipmdownload-subbuild/
+
+# 测试和日志
+/Testing/
+/test_results/
+*.log
+*.jou
+
+# IDE和编辑器临时文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*.user
+
+# 系统临时文件
+*~
+*.bak
+*.tmp
+
+# 特定项目的生成文件
+/catkin_generated/
+/ocs2_core_cppadcg.dir/
+/ocs2_core_loopshaping.dir/
+/ocs2_core_test_*/
+/run_tests_ocs2_core.dir/
+/stamps/
+/version/
+/metapackages/
+/pkgRedirects/
+/progress.marks/
+/progress.make/
+
+# 其他生成文件
+*.dir/
+*.cmake
+*.make
+*.ts
+*.json
+*.yaml
 # Catkin custom files
 CATKIN_IGNORE
