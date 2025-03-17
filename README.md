@@ -23,6 +23,26 @@ AutoPlanX: Lateral-Longitudinal Interaction Demo
 
 对于planning所需要的障碍物建模主要分为两类:
 
+
+基于地图的地形评估算法介绍：
+在每一帧lidar点云到来时，以逐渐增长的半径形成圆环，对每个圆环按照固定角度进行切分形成一个个cell，然后对每一个cell进行地形等级的评分。
+首先得到每个cell内所有高度的点云，然后首先进行聚类，然后判断是否为平面，如果不是平面且体积较大的话定义为障碍物，如果是平面的话标记为可行区域。
+得到所有的平面后需要进行可通行评估，计算平面和水平面的法线相似度和平面内的点的高度差。设计一个代价函数来对平面进行分级，比如说有十个等级。然后设置阈值，
+如果平面等级大于这个阈值则将其设置为low traversability corridor内部的平面，然后对low traversability corridor进行聚类然后进行区间合并。得到low traversability corridor。
+
+
+
+
+
+
+
+在移动无人车的周围一圈一圈地进行地形评估，能够评估
+
+
+
+
+
+
 静态障碍物：直接通过点云处理方法：
 
 我们更倾向于使用计算更快的方式，在不同的高度上进行点云采样。高度占有较多的地方设定为障碍物。
@@ -80,6 +100,93 @@ def generateForwardStagesPro():
     1. 基于v_dmax计算可达区间
     2. 执行区间差集运算
     3. 标注区间类型
+
+
+
+技术方案
+
+技术方案描述
+本方案提出了一种 基于双向可达性搜索（Bidirectional Reachability Search, BRS）与模型预测控制（MPC）的实时路径规划算法，专门针对 动态3D复杂地形（如崎岖地形、坡度变化、动态障碍物场景） 设计。其核心是通过 区间分析（Interval Analysis） 对地形可通行性进行量化评估，并结合双向搜索策略和代价函数优化，实现在非平坦地形中的高效避障与轨迹生成。
+
+技术实现细节
+1. 地形可通行性评估（Traversability Assessment）
+动态边界建模
+通过预定义的地形边界数据（d_min_vec, d_max_vec）和动态安全走廊（corridor_time_ranges），实时计算当前时间步的地形可通行区域（getDBounds 和 getCorridorBounds）。
+动态障碍物处理：通过 getObstaclesAtTime 实时检测障碍物位置，结合 intervalSubtract 方法排除不可通行区间（如岩石、沟壑）。
+坡度与表面粗糙度约束：通过 d_min 和 d_max 的动态调整，模拟地形坡度对车辆运动的限制（如最大爬坡角度）。
+2. 双向可达性搜索（BRS）
+前向阶段生成（Forward Stages）
+从初始位置出发，按时间步（t_resolution_）向前传播，通过 generateForwardStagesPro 生成所有可达区间（Interval）。每个区间包含：
+
+运动学约束：基于最大速度（v_d_max_）计算可达范围（d_lower 和 d_upper）。
+区间类型标记：区分第一类区间（Intervalforwardtype::First，远离安全走廊）和第二类区间（Intervalforwardtype::Second，处于安全走廊内），支持动态权重调整。
+反向阶段生成（Backward Stages）
+从目标点（d_terminal_）反向传播，通过 generateBackwardStages 与前向阶段进行双向匹配，生成 双向可达区间（Bidirect）。
+
+双向重叠验证：通过 Interval 的 forward_type 和 back_type 标记，确保路径在正向和反向阶段均可达。
+3. 路径优化与代价函数
+多目标优化策略
+在候选路径中，通过 evaluateJumpCost 和 calculateOptimalPoint 综合优化以下目标：
+
+路径平滑性：最小化方向突变（w2_ * |d_curr - d_prev|）。
+地形偏好：优先选择远离动态障碍物和地形边缘的路径（w3_ 对走廊外区域给予奖励）。
+终端代价：强制路径最终接近目标点（d_terminal_）。
+非重叠优先：通过 calculateOptimalPoint 的策略点生成（如 safe_margin_），主动避开地形走廊的拥挤区域。
+实时决策与插值
+在 plan_pro 中，通过分层候选区间（step_candidates）和 前瞻步数（max_horizon_steps） 机制，动态选择最优跳跃路径，并通过线性插值确保运动学可行性。
+
+4. 复杂地形适应性增强
+动态障碍物规避
+通过 setObstacles 实时更新障碍物位置（膨胀处理 npc_width_），结合 intervalSubtract 实现动态避障。
+地形起伏建模
+在 getDBounds 中通过线性插值（ratio）模拟地形高度随时间/位置的动态变化（如火星车遭遇沙丘时的地形起伏）。
+非完整约束处理
+通过 v_d_max_ 和 t_resolution_ 控制车辆加速度限制，确保路径在复杂地形中可执行（如坡度陡峭时降低速度）。
+核心创新点
+双向可达性与区间分析的结合
+
+优势：通过双向搜索减少计算冗余，区间合并（mergeIntervals）高效排除不可行区域，实现在动态3D地形中的实时规划（实验中达到 35ms 内完成规划）。
+代码体现：Interval 类的 forward_type 和 back_type 标记，双向阶段生成的 propagated_intervals 合并逻辑。
+地形可通行性驱动的代价函数
+
+创新：引入地形走廊（corridor_min/corridor_max）和安全边距（safe_margin_），通过 w3_ 权重动态调整路径对地形边缘的偏好，避免陷入局部最优（如沟壑边缘）。
+多步前瞻与可见性分析
+
+策略：通过 calculateVisibleSteps 和 step_candidates 分层收集候选路径，并评估后续阶段的连续可见性（angle_threshold），确保路径在复杂地形中的长期可行性。
+应用场景
+自动驾驶越野车辆：在山地、沙漠等非结构化地形中规划避障路径。
+火星车导航：在动态沙丘和陨石坑环境中实现自主路径规划。
+无人机地形跟随：结合高度数据（d 轴）规划山区飞行轨迹。
+代码逻辑与地形关联
+Interval 类：表示地形可通行区域的区间，通过 d_lower 和 d_upper 界定地形边界，contains 方法判断位置是否可通行。
+DPSearch 核心方法：
+getDBounds：根据预定义地形轮廓（如坡度限制）动态生成可通行范围。
+intervalSubtract：通过障碍物数据（obstacles）实时剔除地形中不可通行区域。
+calculateOptimalPoint：结合地形走廊（corridor_min/max）和安全边距，生成避开地形危险区域的最优路径点。
+通过上述设计，该算法在 动态复杂地形 中实现了 实时性（35ms）、鲁棒性（动态障碍物规避）和地形适应性（非平坦路径优化），适用于高机动性场景下的自主导航需求。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
