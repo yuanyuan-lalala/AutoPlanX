@@ -25,11 +25,13 @@ AutoPlanX: Lateral-Longitudinal Interaction Demo
 
 
 基于地图的地形评估算法介绍：
+方案一：
 在每一帧lidar点云到来时，以逐渐增长的半径形成圆环，对每个圆环按照固定角度进行切分形成一个个cell，然后对每一个cell进行地形等级的评分。
 首先得到每个cell内所有高度的点云，然后首先进行聚类，然后判断是否为平面，如果不是平面且体积较大的话定义为障碍物，如果是平面的话标记为可行区域。
 得到所有的平面后需要进行可通行评估，计算平面和水平面的法线相似度和平面内的点的高度差。设计一个代价函数来对平面进行分级，比如说有十个等级。然后设置阈值，
 如果平面等级大于这个阈值则将其设置为low traversability corridor内部的平面，然后对low traversability corridor进行聚类然后进行区间合并。得到low traversability corridor。
-
+方案二：
+将lidar扫出的前方的点云按照一个个strip分好类，首先得让strip分辨率可调。。。
 
 
 
